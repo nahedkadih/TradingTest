@@ -1,17 +1,18 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace ConsoleNahedTest
 {
-    public static class TradingEngineDictionary2
+    public static class TradingEngine0
     {
-        
-        static int curOrderID = 0;
+        public static int TradeCount = 0;
+        public static double TradeSeconds = 0;
+
 
         internal static int askMin = Global.MAX_PRICE;
         internal static int askMax = Global.MIN_PRICE;
@@ -19,20 +20,15 @@ namespace ConsoleNahedTest
         internal static int bidMax = Global.MIN_PRICE;
         internal static int bidMin = Global.MAX_PRICE;
 
-        public static int TradeCount = 0;
-        public static double TradeSeconds = 0;
-       
-        public static Dictionary<string, Order> OrdersBookmarks = new Dictionary<string, Order>();
 
-        public static Queue<Order>[] BuyOrdersBook = new Queue<Order>[Global.MAX_PRICE + 1];
-        public static Queue<Order>[] SellOrdersBook = new Queue<Order>[Global.MAX_PRICE + 1];
+        public static Dictionary<string, LinkedListNode<Order>> OrdersBookmarks = new Dictionary<string, LinkedListNode<Order>>();
+        public static LinkedList<Order>[] BuyOrdersBook = new LinkedList<Order>[Global.MAX_PRICE + 1];
+        public static LinkedList<Order>[] SellOrdersBook = new LinkedList<Order>[Global.MAX_PRICE + 1];
 
-      
- 
-       
+
         public static (int TradeCount, double TradeSeconds) RunExample(string[] commands)
         {
-            ExecuteCommands(commands);  
+            ExecuteCommands(commands);
             return (TradeCount, TradeSeconds);
         }
         public static void ExecuteCommands(string[] commands)
@@ -47,7 +43,7 @@ namespace ConsoleNahedTest
             DateTime endDate = DateTime.Now;
             TimeSpan duration = endDate - strDate;
             TradeSeconds = duration.TotalSeconds;
-          
+
         }
 
 
@@ -95,7 +91,8 @@ namespace ConsoleNahedTest
         public static void AddBuyOrder(string orderId, string OrderSide, string orderType, ushort price, int quantity)
         {
             Order order = new Order(orderId, OrderSide, orderType, price, quantity);
-            Queue<Order> _orders;
+            LinkedList<Order> _orders;
+            LinkedListNode<Order> OrderNode;
             // look for the ones that are higher than the limit price, BuyOrdersBook is sorted in desc order 
             // askMin holds the lowest  price of sell orders.
             if (order.Price >= askMin)
@@ -111,38 +108,39 @@ namespace ConsoleNahedTest
                         askMin++;
                         continue;
                     }
-
                     _orders = SellOrdersBook[askMin];
-                    while (_orders.Count > 0)
+                    OrderNode = _orders.First;
+                    while (OrderNode != null && order.Quantity > 0)
                     {
-                        Order SellOrder = _orders.Peek(); // removed
-                        TradeCount++;
-                        int minQuantity = Math.Min(order.Quantity, SellOrder.Quantity);
-                        Global.PrintToScreen(SellOrder.OrderId, SellOrder.Price, minQuantity, order.OrderId, order.Price, minQuantity);
-                        if (order.Quantity >= SellOrder.Quantity)
+                        if (order.Quantity <= 0)
                         {
-                            _orders.Dequeue();
-                            OrdersBookmarks.Remove(SellOrder.OrderId);
+                            break;
+                        }
+                        int minQuantity = Math.Min(order.Quantity, OrderNode.Value.Quantity);
+                        TradeCount++;
+                        Global.PrintToScreen(OrderNode.Value.OrderId, OrderNode.Value.Price, minQuantity, order.OrderId, order.Price, minQuantity);
+
+                        if (OrderNode.Value.Quantity <= order.Quantity)
+                        { 
+                            _orders.Remove(OrderNode);
+                            OrdersBookmarks.Remove(OrderNode.Value.OrderId);
+                            OrderNode = _orders.First; 
                             if (_orders.Count == 0)
                             {
                                 SellOrdersBook[askMin] = null;
                             }
                         }
                         else
-                        { 
-                            _orders.Peek().Quantity -= minQuantity;
+                        {
+                            OrderNode.Value.Quantity -= order.Quantity;
                         }
                         order.Quantity -= minQuantity;
-                        if (order.Quantity <= 0)
-                        {
-                            break;
-                        }
                     }
 
-                    
+
                 }
 
-                curOrderID++;
+
                 if (bidMax < order.Price)
                 {
                     bidMax = order.Price;
@@ -150,7 +148,6 @@ namespace ConsoleNahedTest
 
                 if (bidMin > order.Price)
                 {
-                    //bidMax holds the maximum price of buy orders.
                     bidMin = order.Price;
                 }
             }
@@ -159,27 +156,29 @@ namespace ConsoleNahedTest
                 _orders = BuyOrdersBook[order.Price];
                 if (_orders == null || _orders.Count == 0)
                 {
-                    _orders = new Queue<Order>();
-                    _orders.Enqueue(order);
+                    _orders = new LinkedList<Order>();
+                    OrderNode = _orders.AddLast(order);
                     BuyOrdersBook[order.Price] = _orders;
                 }
                 else
                 {
-                    _orders.Enqueue(order);
+                    OrderNode = _orders.AddLast(order);
 
                 }
-                BookMark(ref order);
+                BookMark(  OrderNode);
             }
         }
 
         public static void AddSellOrder(string orderId, string OrderSide, string orderType, ushort price, int quantity)
         {
             Order order = new Order(orderId, OrderSide, orderType, price, quantity);
-            Queue<Order> _orders;
+            LinkedList<Order> _orders;
+            LinkedListNode<Order> OrderNode;
             // look for the ones that are higher than the limit price, BuyOrdersBook is sorted in desc order 
             // bidMax holds the maximum price of buy orders.
             if (price <= bidMax)
             {
+
                 while (true)
                 {
                     if (price > bidMax || bidMin > bidMax || order.Quantity == 0)
@@ -193,38 +192,39 @@ namespace ConsoleNahedTest
                     }
 
                     _orders = BuyOrdersBook[bidMax];
-
-                    while (_orders.Count > 0)
+                    OrderNode = _orders.First;
+                    while (OrderNode != null && order.Quantity > 0)
                     {
-                        Order buysOrder = _orders.Peek();  
-                        TradeCount++;
-                        int minQuantity = Math.Min(order.Quantity, buysOrder.Quantity);
-                        Global. PrintToScreen(buysOrder.OrderId, buysOrder.Price, minQuantity, order.OrderId, order.Price, minQuantity);
-                        if (order.Quantity >= buysOrder.Quantity)
-                        {
-                            _orders.Dequeue();
-                            OrdersBookmarks.Remove(buysOrder.OrderId);
-                            if (_orders.Count == 0)
-                            {
-                                BuyOrdersBook[bidMax] = null;
-                            }
-                        }
-                        else
-                        {
-                            _orders.Peek().Quantity -= minQuantity;
-                        }
-                        order.Quantity -= minQuantity;
-
                         if (order.Quantity <= 0)
                         {
                             break;
                         }
+                        int minQuantity = Math.Min(order.Quantity, OrderNode.Value.Quantity);
+                        TradeCount++;
+                        Global.PrintToScreen(OrderNode.Value.OrderId, OrderNode.Value.Price, minQuantity, order.OrderId, order.Price, minQuantity);
 
+                        if (OrderNode.Value.Quantity <= order.Quantity)
+                        { 
+                            _orders.Remove(OrderNode);
+                            OrdersBookmarks.Remove(OrderNode.Value.OrderId);
+                            OrderNode = _orders.First;
+
+                            if (_orders.Count == 0)
+                            {
+                                SellOrdersBook[askMin] = null;
+                            }
+                        }
+                        else
+                        {
+                            OrderNode.Value.Quantity -= order.Quantity;
+                        }
+                        order.Quantity -= minQuantity;
                     }
+
 
                 }
 
-                curOrderID++;
+
                 if (askMin > order.Price)
                 {
                     askMin = order.Price;
@@ -237,71 +237,59 @@ namespace ConsoleNahedTest
             }
             if (order.Quantity > 0 && order.OrderType == Global.CMD_GOODFORDAY)
             {
+                //int aaa = Marshal.SizeOf(order);
                 _orders = SellOrdersBook[order.Price];
                 if (_orders == null || _orders.Count == 0)
                 {
-                    _orders = new Queue<Order>();
-                    _orders.Enqueue(order);
+                    _orders = new LinkedList<Order>();
+                    OrderNode = _orders.AddLast(order);
                     SellOrdersBook[order.Price] = _orders;
                 }
                 else
                 {
-                    _orders.Enqueue(order);
+                    OrderNode = _orders.AddLast(order);
 
                 }
-                BookMark(ref order);
+                BookMark(  OrderNode);
             }
         }
 
-        private static void BookMark(ref Order order)
+        private static void BookMark( LinkedListNode<Order> order)
         {
-            if (OrdersBookmarks.ContainsKey(order.OrderId)) return;
-            OrdersBookmarks.Add(order.OrderId, order);
+            //int aaa = Marshal.SizeOf(order);
+            if (OrdersBookmarks.ContainsKey(order.Value.OrderId)) return;
+            OrdersBookmarks.Add(order.Value.OrderId, order);
         }
 
         public static void ModifyOrder(string orderId, string orderSide, ushort newPrice, int newQty)
-        {
-
+        { 
             if (!OrdersBookmarks.ContainsKey(orderId)) return;
-            var _old_order = OrdersBookmarks[orderId];
-            if (_old_order.OrderType == Global.CMD_INSERTORCANCEL) return;
-            if (_old_order.OrderSide != orderSide || _old_order.Price != newPrice || _old_order.Quantity != newQty)
-            {
-                Queue<Order>[] _currentBook = null;
-                Queue<Order> _orders;
-
-
-                if (_old_order.OrderSide == Global.CMD_BUY)
+            var _order = OrdersBookmarks[orderId];
+            if (_order.Value.OrderType == Global.CMD_INSERTORCANCEL) return;
+            if (_order.Value.OrderSide != orderSide || _order.Value.Price != newPrice || _order.Value.Quantity != newQty)
+            { 
+                LinkedList<Order> _orders;
+                if (_order.Value.OrderSide == Global.CMD_BUY)
                 {
-                    _currentBook = BuyOrdersBook;
-                    _orders = _currentBook[_old_order.Price];
-                    if (_orders != null)
-                    {
-                        var doomed = _orders.FirstOrDefault(x => x.OrderId == orderId);
-                        if (doomed != null)
-                            _orders.Remove(doomed);
-                    }
+                    _orders = BuyOrdersBook[_order.Value.Price];
+                    _orders.Remove(_order);
 
                 }
-                else if (_old_order.OrderSide == Global.CMD_SELL)
+                else if (_order.Value.OrderSide == Global.CMD_SELL)
                 {
-                    _currentBook = SellOrdersBook;
-                    _orders = _currentBook[_old_order.Price];
-                    if (_orders != null)
-                    {
-                        var doomed = _orders.FirstOrDefault(x => x.OrderId == orderId);
-                        if (doomed != null)
-                            _orders.Remove(doomed);
-                    }
-
+                    _orders = SellOrdersBook[_order.Value.Price];
+                    _orders.Remove(_order);
                 }
+                OrdersBookmarks.Remove(orderId);
 
                 if (orderSide == Global.CMD_BUY)
-                { 
+                {
+
                     AddBuyOrder(orderId, orderSide, Global.CMD_GOODFORDAY, newPrice, newQty);
                 }
                 else if (orderSide == Global.CMD_SELL)
                 {
+
                     AddSellOrder(orderId, orderSide, Global.CMD_GOODFORDAY, newPrice, newQty);
                 }
             }
@@ -310,28 +298,18 @@ namespace ConsoleNahedTest
         public static void CancelOrder(string orderId)
         {
             if (!OrdersBookmarks.ContainsKey(orderId)) return;
-            var _order = OrdersBookmarks[orderId];
-            Queue<Order> _orders;
-            if (_order.OrderSide == Global.CMD_BUY)
+            var _order = OrdersBookmarks[orderId]; 
+            LinkedList<Order> _orders;
+            if (_order.Value.OrderSide == Global.CMD_BUY)
             {
-                _orders = BuyOrdersBook[_order.Price];
-                if (_orders != null)
-                {
-                     if (_orders.Contains(_order))
-                        _orders.Remove(_order);
-                }
+                _orders = BuyOrdersBook[_order.Value.Price];
+                _orders.Remove(_order);
+
             }
-            else if (_order.OrderSide == Global.CMD_SELL)
+            else if (_order.Value.OrderSide == Global.CMD_SELL)
             {
-                _orders = SellOrdersBook[_order.Price];
-                if (_orders != null)
-                {
-                    if (_orders.Contains(_order))
-                        _orders.Remove(_order);
-                    //var doomed = _orders.FirstOrDefault(x => x.OrderId == orderId);
-                    //if (doomed != null)
-                    //    _orders.Remove(doomed);
-                }
+                _orders = SellOrdersBook[_order.Value.Price];
+                _orders.Remove(_order);
             }
             OrdersBookmarks.Remove(orderId);
         }
@@ -339,27 +317,30 @@ namespace ConsoleNahedTest
         public static void Print()
         {
             Global.PrintLine($"SELL:");
+
             for (int priceEntry = BuyOrdersBook.Count() - 1; priceEntry >= 0; priceEntry--)
             {
+
                 if (SellOrdersBook[priceEntry] == null || SellOrdersBook[priceEntry].Count == 0)
                 {
                     continue;
                 }
                 var asks_sum = SellOrdersBook[priceEntry].Sum(x => x.Quantity);
                 Global.PrintLine($"{priceEntry} {asks_sum}");
-                 
+
             }
+
             Global.PrintLine($"BUY:");
-        
             for (int priceEntry = BuyOrdersBook.Count() - 1; priceEntry >= 0; priceEntry--)
             {
+
                 if (BuyOrdersBook[priceEntry] == null || BuyOrdersBook[priceEntry].Count == 0)
                 {
                     continue;
                 }
                 var asks_sum = BuyOrdersBook[priceEntry].Sum(x => x.Quantity);
                 Global.PrintLine($"{priceEntry} {asks_sum}");
-                 
+
             }
 
         }
@@ -373,14 +354,14 @@ namespace ConsoleNahedTest
             TradeCount = 0;
             TradeSeconds = 0;
             Global.DebugOutput.Clear();
-            OrdersBookmarks = new Dictionary<string, Order>();
+            OrdersBookmarks = new Dictionary<string, LinkedListNode<Order>>();
+            BuyOrdersBook = new LinkedList<Order>[Global.MAX_PRICE + 1];
+            for (int size = Global.MAX_PRICE; size > 0; size--)
+                BuyOrdersBook[size] = new LinkedList<Order>();
 
-            for (int size = Global.MAX_PRICE; size >= 0; size--)
-                BuyOrdersBook[size] = new Queue<Order>();
-
-            for (int size = Global.MAX_PRICE; size >= 0; size--)
-                SellOrdersBook[size] = new Queue<Order>();
-
+            SellOrdersBook = new LinkedList<Order>[Global.MAX_PRICE + 1];
+            for (int size = Global.MAX_PRICE; size > 0; size--)
+                SellOrdersBook[size] = new LinkedList<Order>();
         }
         public static void Clean()
         {
@@ -389,46 +370,13 @@ namespace ConsoleNahedTest
             OrdersBookmarks.Clear();
             Array.Clear(BuyOrdersBook, 0, BuyOrdersBook.Length);
             Array.Clear(SellOrdersBook, 0, SellOrdersBook.Length);
-        }
-  
-        //public static void Remove<T>(this Queue<T> queue, T itemToRemove) where T : class
-        //{
-        //    var list = queue.ToList(); //Needs to be copy, so we can clear the queue
-        //    queue.Clear();
-        //    foreach (var item in list)
-        //    {
-        //        if (item == itemToRemove)
-        //            continue;
 
-        //        queue.Enqueue(item);
-        //    }
-        //}
-
-        public static void Remove<T>(this Queue<T> queue,   T itemToRemove) where T : class
-        {
-            Contract.Requires(queue != null);
-            Contract.Requires(itemToRemove != null); 
-            var icount = queue.Count();
-            var index = 0;
-            T dequed; 
-            while (index < icount)
-            { 
-                dequed = queue.Dequeue();
-                index++;
-                if (dequed== itemToRemove)
-                {
-                    break;
-                } 
-                queue.Enqueue(dequed);
-            } 
-            while (index < icount)
-            {
-                index++;
-                dequed = queue.Dequeue(); 
-                queue.Enqueue(dequed);
-            } 
         }
+
+
     }
+
+
 
 
 }

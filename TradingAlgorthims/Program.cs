@@ -55,19 +55,19 @@ class Program
 
     static void RunApps(string[] commands)
     {
-        (int TradeCountLists0, double TradeSecondsLists0) = TradingEngineDictionary0.RunExample(commands);
+        (int TradeCountLists0, double TradeSecondsLists0) = TradingEngine0.RunExample(commands);
         Console.WriteLine(string.Format("LinkedList  - TradeSecondsLists0     TradeCount = {0}  TradeSeconds= {1} ", TradeCountLists0, TradeSecondsLists0));
 
-        (int TradeCountLists1, double TradeSecondsLists1) = TradingEngineDictionary1.RunExample(commands);
+        (int TradeCountLists1, double TradeSecondsLists1) = TradingEngine1.RunExample(commands);
         Console.WriteLine(string.Format("List        - TradeSecondsLists1     TradeCount = {0}  TradeSeconds= {1} ", TradeCountLists1, TradeSecondsLists1));
 
-        (int TradeCountLists2, double TradeSecondsLists2) = TradingEngineDictionary2.RunExample(commands);
+        (int TradeCountLists2, double TradeSecondsLists2) = TradingEngine2.RunExample(commands);
         Console.WriteLine(string.Format("Queue       - TradeSecondsLists2     TradeCount = {0}  TradeSeconds= {1} ", TradeCountLists2, TradeSecondsLists2));
 
-        (int TradeCountLists3, double TradeSecondsLists3) = TradingEngineDictionary3.RunExample(commands);
+        (int TradeCountLists3, double TradeSecondsLists3) = TradingEngine3.RunExample(commands);
         Console.WriteLine(string.Format("Dictionary  - TradeSecondsLists3     TradeCount = {0}  TradeSeconds= {1} ", TradeCountLists3, TradeSecondsLists3));
 
-        (int TradeCountLists4, double TradeSecondsLists4) = TradingEngineDictionary4.RunExample(commands);
+        (int TradeCountLists4, double TradeSecondsLists4) = TradingEngine4.RunExample(commands);
         Console.WriteLine(string.Format("SortedDict  - TradeSecondsLists4     TradeCount = {0}  TradeSeconds= {1} ", TradeCountLists4, TradeSecondsLists4));
 
         

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ConsoleNahedTest
 {
-    public static class TradingEngineDictionary4
+    public static class TradingEngine4
     {
          
         static int curOrderID = 0;
